@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inside fint’s Order Execution Engine: Keeping Automated Trades Accurate at Scale</title>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-light: #eff6ff;
+      --text-main: #111827;
+      --text-body: #374151;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --bg-page: #f9fafb;
+      --bg-card: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-body);
+      line-height: 1.75;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .portfolio-banner {
+      background-color: #111827;
+      color: #f9fafb;
+      font-size: 0.85rem;
+      padding: 10px 20px;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+
+    .portfolio-banner span {
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 40px auto 80px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 56px 64px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+
+    .category-tag {
+      display: inline-block;
+      background-color: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.3;
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .meta-info {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 36px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 44px 0 16px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      margin-bottom: 20px;
+      font-size: 1.05rem;
+    }
+
+    strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .engine-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin: 28px 0 36px;
+    }
+
+    .engine-card {
+      background: var(--bg-page);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--primary);
+      border-radius: 8px;
+      padding: 20px 22px;
+    }
+
+    .engine-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .engine-acronym {
+      font-size: 0.78rem;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .engine-card p {
+      font-size: 0.92rem;
+      margin-bottom: 0;
+      line-height: 1.6;
+    }
+
+    .callout-box {
+      background-color: var(--primary-light);
+      border-left: 4px solid var(--primary);
+      padding: 20px 24px;
+      border-radius: 0 8px 8px 0;
+      margin: 28px 0;
+    }
+
+    .callout-box .stat {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--primary);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .callout-box p {
+      margin-bottom: 0;
+      font-size: 0.98rem;
+    }
+
+    .option-list {
+      background: var(--bg-page);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 22px 28px;
+      margin: 24px 0 28px;
+    }
+
+    .option-list ul {
+      list-style: none;
+    }
+
+    .option-list li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 12px;
+      font-size: 0.98rem;
+    }
+
+    .option-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    .option-list li::before {
+      content: "•";
+      color: var(--primary);
+      font-weight: bold;
+      position: absolute;
+      left: 0;
+    }
+
+    .conclusion-box {
+      margin-top: 44px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        margin: 0;
+        border-radius: 0;
+        border: none;
+        padding: 32px 22px;
+      }
+      h1 {
+        font-size: 1.65rem;
+      }
+      .engine-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="portfolio-banner">
+    <span>Portfolio Content Sample</span> | Translated &amp; Adapted from Korean Tech Blog for Global B2B Audience
+  </div>
+
+  <main class="container">
+    <span class="category-tag">AI Engineering &amp; System Architecture</span>
+    <h1>Inside fint’s Order Execution Engine: Keeping Automated Trades Accurate at Scale</h1>
+    
+    <div class="meta-info">
+      <span>By Mingyeom Kim (Brand &amp; Content Marketer)</span>
+      <span>•</span>
+      <span>Original Source: fint Tech Blog (December &amp; Company)</span>
+    </div>
+
+    <p>
+      Algorithmic stock trading sounds effortless on paper. Yet behind the scenes, one delayed order or a fat-finger glitch that adds an extra zero to a trade quantity can quickly turn a winning stock pick into a costly loss.
+    </p>
+    <p>
+      At December &amp; Company, stability and precision in order execution sit at the core of fint’s operations. Here is a closer look at how our system processes customized orders across hundreds of thousands of accounts without dropping the ball.
+    </p>
+
+    <h2>ISAAC Picks the Strategy, PREFACE Runs the Trades</h2>
+    <p>
+      Think of <strong>ISAAC</strong> as fint’s brain and <strong>PREFACE</strong> as the nervous system and muscles that carry out its decisions. While ISAAC crunches data to decide <em>what</em> to buy and in <em>what</em> volume, PREFACE steps in to execute those trades quickly and safely.
+    </p>
+    <p>
+      Working off ISAAC’s asset allocation blueprint, PREFACE coordinates AI trading modules and currency exchange workflows to protect client returns—all tied together by an automated execution pipeline.
+    </p>
+
+    <div class="engine-grid">
+      <div class="engine-card">
+        <h3>ISAAC</h3>
+        <span class="engine-acronym">Intelligent Strategic Asset Allocation Core</span>
+        <p>A modular AI investment engine that builds tailored portfolios using market and client data.</p>
+      </div>
+      <div class="engine-card">
+        <h3>PREFACE</h3>
+        <span class="engine-acronym">Personalized Runtime Environments For Automated Customizing Engine</span>
+        <p>Our proprietary AI execution engine built specifically to handle personalized discretionary accounts at scale.</p>
+      </div>
+    </div>
+
+    <h2>Handling Thousands of Orders Every Second</h2>
+    <p>
+      Because fint manages discretionary accounts individually, every user ends up with a unique mix of tickers and share counts. If 100,000 accounts trade just 10 stocks each in a single session, our backend has to clear at least one million distinct orders—each governed by different market rules.
+    </p>
+    <p>
+      Placing a trade goes well beyond choosing between a basic limit order or after-hours execution. Limit orders split into conditional, best-offer, and top-priority types, while market orders stretch across pre-market, regular, and post-market windows.
+    </p>
+
+    <div class="option-list">
+      <ul>
+        <li><strong>FAS (Fill and Store):</strong> Fills whatever shares are immediately available and leaves the rest on the order book until the market closes.</li>
+        <li><strong>IOC (Immediate or Cancel):</strong> Executes the available portion right away and cancels any unfilled balance.</li>
+        <li><strong>FOK (Fill or Kill):</strong> Fills the entire order on the spot—or cancels the whole thing if full volume isn't available.</li>
+      </ul>
+    </div>
+
+    <p>
+      Sticking strictly to market orders guarantees speed, but paying unfavorable spreads eats away at user returns over time. On the flip side, sitting passively on limit orders risks missing target portfolio weights altogether.
+    </p>
+
+    <div class="callout-box">
+      <span class="stat">Up to 2,000 Orders Per Second</span>
+      <p>PREFACE weighs live market conditions alongside individual account states in parallel—running pre-trade balance checks right before dispatch to prevent margin shortfalls or duplicate quantities.</p>
+    </div>
+
+    <p>
+      Picture a human trader trying to run this manually. Working through orders one by one leaves zero room to react to fast-moving prices. Throwing more headcount at the problem to work in parallel would only inflate operating costs—and client fees—while inviting human error. At a scale of hundreds of thousands of accounts, real-time filtering and multi-condition execution simply aren't feasible without an engine like PREFACE.
+    </p>
+
+    <h2>Why Stress-Testing Comes First</h2>
+    <p>
+      Every order placed on fint routes through partner brokerages. To turn ISAAC’s target portfolio into actual holdings, PREFACE translates trade instructions into specific API calls tailored to each brokerage’s order protocol and exchange rules.
+    </p>
+    <p>
+      Trouble starts whenever either fint or a partner brokerage ships a system update. If a protocol change isn't synced properly, orders can bounce or go through with wrong prices and share counts. Fixing an off-target portfolio afterward takes unplanned rebalancing time—and directly hurts client performance.
+    </p>
+    <p>
